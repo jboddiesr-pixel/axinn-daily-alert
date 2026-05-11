@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axinn Daily Operational Alert</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0d1b2a;
+    --deep: #112236;
+    --card: #16293d;
+    --border: rgba(100,160,220,0.15);
+    --accent: #4a9eda;
+    --accent2: #7fbfef;
+    --gold: #c9a84c;
+    --green: #3db87a;
+    --yellow: #e8b84b;
+    --red: #e05a5a;
+    --text: #d4e4f5;
+    --muted: #7a9bb8;
+    --white: #f0f6ff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 10%, rgba(74,158,218,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(201,168,76,0.04) 0%, transparent 50%);
+    pointer-events:none; z-index:0;
+  }
+  .wrapper {
+    position:relative; z-index:1;
+    max-width:960px; margin:0 auto;
+    padding:32px 20px 48px;
+  }
+
+  /* HEADER */
+  .header {
+    display:flex; align-items:flex-start; justify-content:space-between;
+    margin-bottom:32px; padding-bottom:20px;
+    border-bottom:1px solid var(--border);
+    animation:fadeDown 0.5s ease both;
+  }
+  .firm-name {
+    font-family:'Playfair Display',serif;
+    font-size:11px; font-weight:600; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--gold); margin-bottom:4px;
+  }
+  .report-title {
+    font-family:'Playfair Display',serif;
+    font-size:26px; font-weight:700; color:var(--white); line-height:1.15;
+  }
+  .header-meta { text-align:right; }
+  .date-badge {
+    display:inline-block;
+    background:rgba(74,158,218,0.12);
+    border:1px solid rgba(74,158,218,0.25);
+    border-radius:6px; padding:6px 14px;
+    font-size:12px; font-weight:500; color:var(--accent2);
+    letter-spacing:0.05em; margin-bottom:6px;
+  }
+  .prepared-by { font-size:11px; color:var(--muted); letter-spacing:0.05em; }
+
+  /* LOADING STATE */
+  .loading-overlay {
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    min-height:60vh; gap:20px;
+    animation:fadeDown 0.4s ease both;
+  }
+  .spinner {
+    width:44px; height:44px;
+    border:3px solid rgba(74,158,218,0.15);
+    border-top-color:var(--accent);
+    border-radius:50%;
+    animation:spin 0.9s linear infinite;
+  }
+  .loading-text {
+    font-family:'Playfair Display',serif;
+    font-size:16px; color:var(--muted); letter-spacing:0.05em;
+  }
+  .loading-sub { font-size:12px; color:#3a5870; margin-top:4px; text-align:center; }
+
+  /* ERROR STATE */
+  .error-box {
+    background:rgba(224,90,90,0.08);
+    border:1px solid rgba(224,90,90,0.25);
+    border-radius:12px; padding:24px 28px;
+    margin:40px 0;
+  }
+  .error-title { font-size:15px; font-weight:600; color:#e07a7a; margin-bottom:8px; }
+  .error-msg { font-size:12.5px; color:var(--muted); line-height:1.6; }
+  .retry-btn {
+    margin-top:14px; padding:8px 20px;
+    background:rgba(74,158,218,0.15);
+    border:1px solid rgba(74,158,218,0.3);
+    border-radius:7px; color:var(--accent2);
+    font-size:13px; font-weight:500; cursor:pointer;
+    font-family:'DM Sans',sans-serif;
+    transition:background 0.2s;
+  }
+  .retry-btn:hover { background:rgba(74,158,218,0.25); }
+
+  /* SECTION LABEL */
+  .section-label {
+    font-size:10px; font-weight:600; letter-spacing:0.2em;
+    text-transform:uppercase; color:var(--gold);
+    margin-bottom:14px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .section-label::after {
+    content:''; flex:1; height:1px; background:var(--border);
+  }
+
+  /* STATUS ROW */
+  .status-row {
+    display:grid; grid-template-columns:repeat(4,1fr);
+    gap:10px; margin-bottom:32px;
+    animation:fadeUp 0.5s 0.1s ease both;
+  }
+  .status-pill {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:10px; padding:12px 14px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .status-dot.green { background:var(--green); box-shadow:0 0 6px rgba(61,184,122,0.5); }
+  .status-dot.yellow { background:var(--yellow); box-shadow:0 0 6px rgba(232,184,75,0.5); }
+  .status-dot.red { background:var(--red); box-shadow:0 0 6px rgba(224,90,90,0.5); }
+  .status-office { font-size:10px; color:var(--muted); letter-spacing:0.05em; margin-bottom:1px; }
+  .status-state { font-size:12px; font-weight:600; color:var(--white); }
+
+  /* WEATHER GRID */
+  .weather-grid {
+    display:grid; grid-template-columns:repeat(2,1fr);
+    gap:14px; margin-bottom:32px;
+  }
+  .weather-card {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:12px; padding:20px;
+    position:relative; overflow:hidden;
+    animation:fadeUp 0.5s ease both;
+    transition:border-color 0.2s, transform 0.2s;
+  }
+  .weather-card:hover { border-color:rgba(74,158,218,0.35); transform:translateY(-2px); }
+  .weather-card::before {
+    content:''; position:absolute; top:0; left:0; right:0;
+    height:3px; border-radius:12px 12px 0 0;
+  }
+  .weather-card.clear::before { background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+  .weather-card.cloudy::before { background:linear-gradient(90deg,#6a8aa8,#9bb8d4); }
+  .weather-card.rain::before { background:linear-gradient(90deg,#5a7fa8,#8ab0d0); }
+  .weather-card.fog::before { background:linear-gradient(90deg,#7a9090,#a0b8b8); }
+  .weather-card.storm::before { background:linear-gradient(90deg,#6a5a8a,#9a80c0); }
+  .office-header {
+    display:flex; justify-content:space-between;
+    align-items:flex-start; margin-bottom:14px;
+  }
+  .office-name {
+    font-family:'Playfair Display',serif;
+    font-size:15px; font-weight:600; color:var(--white); line-height:1.2;
+  }
+  .office-address { font-size:10.5px; color:var(--muted); margin-top:2px; }
+  .weather-icon { font-size:28px; line-height:1; }
+  .temp-display { display:flex; align-items:baseline; gap:8px; margin-bottom:10px; }
+  .temp-hi { font-size:32px; font-weight:600; color:var(--white); line-height:1; }
+  .temp-lo { font-size:18px; font-weight:400; color:var(--muted); }
+  .temp-unit { font-size:13px; color:var(--muted); margin-left:-4px; }
+  .condition-text { font-size:12.5px; color:var(--accent2); font-weight:500; margin-bottom:10px; }
+  .weather-details { display:flex; flex-wrap:wrap; gap:8px; }
+  .detail-chip {
+    background:rgba(255,255,255,0.05); border-radius:5px;
+    padding:3px 9px; font-size:11px; color:var(--muted);
+  }
+  .alert-chip {
+    background:rgba(224,90,90,0.12); border:1px solid rgba(224,90,90,0.3);
+    border-radius:5px; padding:3px 9px; font-size:11px; color:#e07a7a;
+    font-weight:500; margin-top:6px; display:inline-block;
+  }
+  .info-chip {
+    background:rgba(232,184,75,0.1); border:1px solid rgba(232,184,75,0.25);
+    border-radius:5px; padding:3px 9px; font-size:11px; color:#d4a84e;
+    font-weight:500; margin-top:6px; display:inline-block;
+  }
+
+  /* NEWS */
+  .news-container { display:flex; flex-direction:column; gap:12px; margin-bottom:32px; animation:fadeUp 0.5s 0.2s ease both; }
+  .news-card {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:10px; padding:16px 18px;
+    display:flex; gap:14px; align-items:flex-start;
+    transition:border-color 0.2s, transform 0.2s;
+  }
+  .news-card:hover { border-color:rgba(74,158,218,0.3); transform:translateX(3px); }
+  .news-tag {
+    flex-shrink:0; font-size:9.5px; font-weight:600;
+    letter-spacing:0.1em; text-transform:uppercase;
+    padding:3px 8px; border-radius:4px; margin-top:1px;
+  }
+  .news-tag.leadership { background:rgba(201,168,76,0.15); color:var(--gold); border:1px solid rgba(201,168,76,0.25); }
+  .news-tag.lateral { background:rgba(61,184,122,0.12); color:#5dcc96; border:1px solid rgba(61,184,122,0.25); }
+  .news-tag.award { background:rgba(74,158,218,0.12); color:var(--accent2); border:1px solid rgba(74,158,218,0.25); }
+  .news-tag.litigation { background:rgba(180,100,220,0.12); color:#c088e0; border:1px solid rgba(180,100,220,0.25); }
+  .news-tag.insight { background:rgba(232,184,75,0.1); color:#d4b060; border:1px solid rgba(232,184,75,0.2); }
+  .news-tag.general { background:rgba(100,140,180,0.12); color:#8ab0d8; border:1px solid rgba(100,140,180,0.25); }
+  .news-headline { font-size:13.5px; font-weight:600; color:var(--white); margin-bottom:4px; line-height:1.35; }
+  .news-summary { font-size:12px; color:var(--muted); line-height:1.55; }
+  .news-meta { font-size:10.5px; color:#4a7090; margin-top:5px; letter-spacing:0.04em; }
+
+  /* FOOTER */
+  .footer {
+    display:flex; justify-content:space-between; align-items:center;
+    padding-top:20px; border-top:1px solid var(--border);
+    font-size:10.5px; color:#3a5870;
+    animation:fadeUp 0.5s 0.3s ease both;
+  }
+  .footer-brand { font-family:'Playfair Display',serif; color:#4a7090; letter-spacing:0.05em; }
+  .refresh-info { font-size:10px; color:#2a4860; }
+
+  /* CACHE BANNER */
+  .cache-banner {
+    background:rgba(201,168,76,0.08); border:1px solid rgba(201,168,76,0.2);
+    border-radius:8px; padding:8px 14px; margin-bottom:20px;
+    font-size:11px; color:#a08040; display:flex; align-items:center; gap:8px;
+  }
+
+  @keyframes fadeDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  @media(max-width:580px){
+    .weather-grid{grid-template-columns:1fr}
+    .status-row{grid-template-columns:repeat(2,1fr)}
+    .report-title{font-size:20px}
+    .header{flex-direction:column;gap:12px}
+    .header-meta{text-align:left}
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER (always visible) -->
+  <div class="header">
+    <div class="header-left">
+      <div class="firm-name">Axinn, Veltrop &amp; Harkrider LLP</div>
+      <div class="report-title">Daily Operational Alert</div>
+    </div>
+    <div class="header-meta">
+      <div class="date-badge" id="dateBadge">Loading…</div>
+      <div class="prepared-by">Facilities &amp; Hospitality Operations</div>
+    </div>
+  </div>
+
+  <!-- DYNAMIC CONTENT AREA -->
+  <div id="content">
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <div>
+        <div class="loading-text">Generating today's briefing…</div>
+        <div class="loading-sub">Pulling live weather &amp; firm news across all four offices</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer" id="footer" style="display:none">
+    <div class="footer-brand">Axinn, Veltrop &amp; Harkrider LLP</div>
+    <div class="refresh-info" id="refreshInfo"></div>
+  </div>
+
+</div>
+
+<script>
+const CACHE_KEY = 'axinn_alert_cache';
+const CACHE_DATE_KEY = 'axinn_alert_date';
+
+function todayStr() {
+  return new Date().toLocaleDateString('en-US', {
+    weekday:'long', year:'numeric', month:'long', day:'numeric'
+  });
+}
+
+function todayISO() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function setDateBadge() {
+  document.getElementById('dateBadge').textContent = todayStr();
+}
+
+function getStatusDot(status) {
+  const map = { green:'green', yellow:'yellow', red:'red' };
+  return map[status] || 'green';
+}
+
+function getCardClass(condition) {
+  const c = (condition || '').toLowerCase();
+  if (c.includes('fog') || c.includes('marine') || c.includes('mist')) return 'fog';
+  if (c.includes('rain') || c.includes('shower') || c.includes('drizzle')) return 'rain';
+  if (c.includes('storm') || c.includes('thunder')) return 'storm';
+  if (c.includes('cloud') || c.includes('overcast')) return 'cloudy';
+  return 'clear';
+}
+
+function getWeatherIcon(condition) {
+  const c = (condition || '').toLowerCase();
+  if (c.includes('thunder') || c.includes('storm')) return '⛈️';
+  if (c.includes('snow')) return '❄️';
+  if (c.includes('rain') || c.includes('shower')) return '🌧️';
+  if (c.includes('drizzle')) return '🌦️';
+  if (c.includes('fog') || c.includes('mist') || c.includes('marine')) return '🌫️';
+  if (c.includes('overcast') || c.includes('mostly cloud')) return '☁️';
+  if (c.includes('partly') || c.includes('partial')) return '⛅';
+  if (c.includes('clear') || c.includes('sunny')) return '☀️';
+  return '🌤️';
+}
+
+function renderDashboard(data) {
+  const offices = data.offices || [];
+  const news = data.news || [];
+
+  // Status row
+  let statusHTML = offices.map(o => `
+    <div class="status-pill">
+      <div class="status-dot ${getStatusDot(o.status_color)}"></div>
+      <div>
+        <div class="status-office">${o.city}</div>
+        <div class="status-state">${o.status_label}</div>
+      </div>
+    </div>
+  `).join('');
+
+  // Weather cards
+  let weatherHTML = offices.map((o, i) => {
+    const cardClass = getCardClass(o.condition);
+    const icon = getWeatherIcon(o.condition);
+    const chips = (o.detail_chips || []).map(c => `<span class="detail-chip">${c}</span>`).join('');
+    const alertChip = o.alert ? `<div class="alert-chip">🚨 ${o.alert}</div>` : '';
+    const infoChip = o.info ? `<div class="info-chip">⚠️ ${o.info}</div>` : '';
+    return `
+      <div class="weather-card ${cardClass}" style="animation-delay:${0.05 + i*0.05}s">
+        <div class="office-header">
+          <div>
+            <div class="office-name">${o.name}</div>
+            <div class="office-address">${o.address}</div>
+          </div>
+          <div class="weather-icon">${icon}</div>
+        </div>
+        <div class="temp-display">
+          <span class="temp-hi">${o.temp_hi}</span><span class="temp-unit">°F</span>
+          <span class="temp-lo">/ ${o.temp_lo}°</span>
+        </div>
+        <div class="condition-text">${o.condition}</div>
+        <div class="weather-details">${chips}</div>
+        ${alertChip}${infoChip}
+      </div>
+    `;
+  }).join('');
+
+  // News cards
+  let newsHTML = news.map(n => `
+    <div class="news-card">
+      <span class="news-tag ${n.tag_class || 'general'}">${n.tag}</span>
+      <div class="news-body">
+        <div class="news-headline">${n.headline}</div>
+        <div class="news-summary">${n.summary}</div>
+        <div class="news-meta">${n.meta}</div>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('content').innerHTML = `
+    <div class="section-label">Office Status Summary</div>
+    <div class="status-row">${statusHTML}</div>
+    <div class="section-label">Weather Conditions</div>
+    <div class="weather-grid">${weatherHTML}</div>
+    <div class="section-label">Firm News Summary</div>
+    <div class="news-container">${newsHTML}</div>
+  `;
+
+  const footer = document.getElementById('footer');
+  footer.style.display = 'flex';
+  document.getElementById('refreshInfo').textContent =
+    `Generated ${new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'})} · Refreshes daily`;
+}
+
+function renderError(msg) {
+  document.getElementById('content').innerHTML = `
+    <div class="error-box">
+      <div class="error-title">Unable to generate today's briefing</div>
+      <div class="error-msg">${msg}<br><br>This may be a temporary issue. Please try again.</div>
+      <button class="retry-btn" onclick="loadAlert(true)">↻ Retry</button>
+    </div>
+  `;
+}
+
+async function loadAlert(forceRefresh = false) {
+  setDateBadge();
+
+  // Check cache — use it if it's from today and not forcing refresh
+  const cachedDate = localStorage.getItem(CACHE_DATE_KEY);
+  const cachedData = localStorage.getItem(CACHE_KEY);
+  if (!forceRefresh && cachedDate === todayISO() && cachedData) {
+    try {
+      const parsed = JSON.parse(cachedData);
+      renderDashboard(parsed);
+      const banner = document.createElement('div');
+      banner.className = 'cache-banner';
+      banner.innerHTML = `📋 Showing today's cached briefing &nbsp;·&nbsp; <span style="cursor:pointer;text-decoration:underline" onclick="loadAlert(true)">Refresh now</span>`;
+      document.getElementById('content').prepend(banner);
+      return;
+    } catch(e) {}
+  }
+
+  // Show loading
+  document.getElementById('content').innerHTML = `
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <div>
+        <div class="loading-text">Generating today's briefing…</div>
+        <div class="loading-sub">Pulling live weather &amp; firm news across all four offices</div>
+      </div>
+    </div>
+  `;
+  document.getElementById('footer').style.display = 'none';
+
+  const today = todayStr();
+  const prompt = `You are generating a daily operational briefing for the Facilities & Hospitality Manager at Axinn, Veltrop & Harkrider LLP. Today is ${today}.
+
+Return ONLY a valid JSON object — no markdown, no backticks, no preamble — with this exact structure:
+
+{
+  "offices": [
+    {
+      "name": "Washington, DC",
+      "city": "Washington, DC",
+      "address": "1901 L Street NW",
+      "temp_hi": "72",
+      "temp_lo": "55",
+      "condition": "Partly Cloudy, Mild",
+      "status_color": "green",
+      "status_label": "Operational",
+      "detail_chips": ["☀️ Partly sunny", "🌬️ SW winds 8 mph", "💧 Low precip"],
+      "alert": null,
+      "info": "Comfortable conditions all day"
+    },
+    {
+      "name": "New York, NY",
+      "city": "New York, NY",
+      "address": "45 Rockefeller Plaza",
+      "temp_hi": "68",
+      "temp_lo": "52",
+      "condition": "Mostly Cloudy",
+      "status_color": "green",
+      "status_label": "Operational",
+      "detail_chips": ["⛅ Variable clouds", "🌬️ N winds 10 mph"],
+      "alert": null,
+      "info": null
+    },
+    {
+      "name": "San Francisco, CA",
+      "city": "San Francisco, CA",
+      "address": "Golden Gate Ave Office",
+      "temp_hi": "64",
+      "temp_lo": "52",
+      "condition": "Marine Layer, Foggy AM",
+      "status_color": "green",
+      "status_label": "Operational",
+      "detail_chips": ["🌫️ AM fog", "🌊 Marine layer", "🌬️ Onshore winds"],
+      "alert": null,
+      "info": null
+    },
+    {
+      "name": "Hartford, CT",
+      "city": "Hartford, CT",
+      "address": "90 State House Square",
+      "temp_hi": "65",
+      "temp_lo": "44",
+      "condition": "Partly Cloudy",
+      "status_color": "green",
+      "status_label": "Operational",
+      "detail_chips": ["⛅ Variable clouds", "🌬️ NW winds"],
+      "alert": null,
+      "info": null
+    }
+  ],
+  "news": [
+    {
+      "tag": "Leadership",
+      "tag_class": "leadership",
+      "headline": "Headline here",
+      "summary": "2-3 sentence summary here.",
+      "meta": "Date · Office"
+    }
+  ]
+}
+
+Instructions:
+1. For weather: provide realistic, accurate current weather for today (${today}) for each city. Use your best knowledge of seasonal norms and any current conditions you know. For temp_hi and temp_lo use numbers only (no degree symbol). For detail_chips use 2-4 short emoji-prefixed strings. Set alert (red warning) only for severe/hazardous conditions. Set info (yellow note) for notable but non-severe conditions. Set status_color to "green" (normal), "yellow" (monitor), or "red" (issue).
+
+2. For news: include 5-7 recent or notable Axinn firm news items. Include recent lateral hires, awards, major cases (especially Google ad tech litigation), leadership appointments, upcoming speaking events this week, and published insights. Tag classes: leadership, lateral, award, litigation, insight, general. Keep summaries concise and operational — what a facilities manager would find useful to know.
+
+Return ONLY the JSON object. No other text.`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API error ${response.status}`);
+    }
+
+    const data = await response.json();
+    const raw = data.content?.find(b => b.type === 'text')?.text || '';
+
+    // Strip any accidental markdown fences
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    // Cache it
+    localStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
+    localStorage.setItem(CACHE_DATE_KEY, todayISO());
+
+    renderDashboard(parsed);
+
+  } catch(err) {
+    console.error('Alert generation error:', err);
+    renderError(err.message || 'Unknown error occurred.');
+  }
+}
+
+// Kick off on load
+loadAlert();
+</script>
+</body>
+</html>
